@@ -19,5 +19,21 @@
     "newman": "^6.2.1",
     "newman-reporter-htmlextra": "^1.23.1",
     "wait-on": "^7.2.0"
-  }
+  },
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DVKNCNNT1708/lab-03-api-contract-testing-DuongVanViet.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/DVKNCNNT1708/lab-03-api-contract-testing-DuongVanViet/issues"
+  },
+  "homepage": "https://github.com/DVKNCNNT1708/lab-03-api-contract-testing-DuongVanViet#readme"
 }

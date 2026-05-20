@@ -1,35 +1,60 @@
 openapi: 3.1.0
+
 info:
   title: Smart Campus — AI Vision API
   version: 0.3.0
   description: |
     Contract mock tối thiểu cho consumer-side smoke test trong FIT4110 Lab 03.
-    File này giúp Camera Stream hoặc Core Business gọi thử AI Vision khi service thật chưa hoàn thiện.
+
+    File này hỗ trợ:
+    - Camera Stream service
+    - Core Business service
+    - Analytics service
+
+    gọi thử AI Vision thông qua Prism Mock Server trước khi service thật hoàn thiện.
+  contact:
+    name: Team Vision
+    email: team-vision@example.com
+
 servers:
   - url: http://localhost:4011
     description: Prism mock server for AI Vision
+
 tags:
   - name: vision
-    description: Image detection
+    description: Image detection endpoints
+
   - name: system
     description: Health and runtime information
+
 security:
   - bearerAuth: []
+
 paths:
+
   /health:
     get:
-      tags: [system]
+      tags:
+        - system
+
       operationId: getVisionHealth
+
       summary: Kiểm tra trạng thái AI Vision mock
-      description: Public health check dùng để kiểm tra mock AI Vision đã sẵn sàng.
+
+      description: |
+        Public health check dùng để xác nhận mock AI Vision đã sẵn sàng.
+
       security: []
+
       responses:
         "200":
           description: Service đang hoạt động
+
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/HealthResponse"
+
               examples:
                 ok:
                   value:
@@ -39,42 +64,79 @@ paths:
 
   /detect:
     post:
-      tags: [vision]
+      tags:
+        - vision
+
       operationId: detectImage
+
       summary: Phát hiện đối tượng trong ảnh
-      description: Endpoint mock tối thiểu để consumer kiểm tra luồng Camera/Core gọi AI Vision.
+
+      description: |
+        Endpoint mock tối thiểu để consumer kiểm tra luồng Camera/Core gọi AI Vision.
+
+        Request phải có:
+        - camera_id
+        - image_url hoặc image_base64
+
+      security:
+        - bearerAuth: []
+
       requestBody:
         required: true
+
         content:
           application/json:
             schema:
               $ref: "#/components/schemas/DetectionRequest"
+
             examples:
               valid_url:
+                summary: URL image hợp lệ
                 value:
                   camera_id: CAM01
                   image_url: https://example.com/frame.jpg
+
+              valid_base64:
+                summary: Base64 image hợp lệ
+                value:
+                  camera_id: CAM02
+                  image_base64: BASE64_IMAGE_DATA
+
       responses:
+
         "200":
-          description: Kết quả nhận diện
+          description: Kết quả nhận diện thành công
+
           content:
             application/json:
               schema:
                 $ref: "#/components/schemas/DetectionResponse"
+
               examples:
-                detected:
+                detected_person:
                   value:
                     detection_id: DET001
                     camera_id: CAM01
                     label: person
                     confidence: 0.91
                     risk_level: medium
+
+                detected_vehicle:
+                  value:
+                    detection_id: DET002
+                    camera_id: CAM02
+                    label: vehicle
+                    confidence: 0.97
+                    risk_level: high
+
         "400":
           description: Request không hợp lệ
+
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ProblemDetails"
+
               examples:
                 invalid_image:
                   value:
@@ -83,12 +145,15 @@ paths:
                     status: 400
                     detail: image_url or image_base64 is required
                     instance: /detect
+
         "401":
-          description: Thiếu hoặc sai token
+          description: Thiếu hoặc sai bearer token
+
           content:
             application/problem+json:
               schema:
                 $ref: "#/components/schemas/ProblemDetails"
+
               examples:
                 unauthorized:
                   value:
@@ -98,83 +163,184 @@ paths:
                     detail: Missing or invalid bearer token
                     instance: /detect
 
+        "422":
+          description: Validation failed
+
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+              examples:
+                validation_error:
+                  value:
+                    type: https://smart-campus.local/problems/validation-error
+                    title: Validation failed
+                    status: 422
+                    detail: camera_id format is invalid
+                    instance: /detect
+
+        "429":
+          description: Too many requests
+
+          content:
+            application/problem+json:
+              schema:
+                $ref: "#/components/schemas/ProblemDetails"
+
+              examples:
+                rate_limit:
+                  value:
+                    type: https://smart-campus.local/problems/rate-limit
+                    title: Too Many Requests
+                    status: 429
+                    detail: Rate limit exceeded
+                    instance: /detect
+
 components:
+
   securitySchemes:
+
     bearerAuth:
       type: http
       scheme: bearer
       bearerFormat: JWT
 
   schemas:
+
     DetectionRequest:
       type: object
-      required: [camera_id]
+
+      additionalProperties: false
+
+      required:
+        - camera_id
+
+      anyOf:
+        - required:
+            - image_url
+
+        - required:
+            - image_base64
+
       properties:
+
         camera_id:
           type: string
-          minLength: 3
+          minLength: 5
+          pattern: "^CAM[0-9]{2,}$"
           example: CAM01
+
         image_url:
           type: string
           format: uri
           example: https://example.com/frame.jpg
+
         image_base64:
           type: string
+          minLength: 10
           description: Chuỗi base64 nếu không dùng image_url
 
     DetectionResponse:
       type: object
-      required: [detection_id, label, confidence, risk_level]
+
+      additionalProperties: false
+
+      required:
+        - detection_id
+        - camera_id
+        - label
+        - confidence
+        - risk_level
+
       properties:
+
         detection_id:
           type: string
           example: DET001
+
         camera_id:
           type: string
           example: CAM01
+
         label:
           type: string
-          enum: [person, vehicle, unknown]
+          enum:
+            - person
+            - vehicle
+            - unknown
+
           example: person
+
         confidence:
           type: number
           minimum: 0
           maximum: 1
           example: 0.91
+
         risk_level:
           type: string
-          enum: [low, medium, high]
+          enum:
+            - low
+            - medium
+            - high
+
           example: medium
 
     HealthResponse:
       type: object
-      required: [status, service, version]
+
+      additionalProperties: false
+
+      required:
+        - status
+        - service
+        - version
+
       properties:
+
         status:
           type: string
-          enum: [ok]
+          enum:
+            - ok
+
           example: ok
+
         service:
           type: string
           example: ai-vision
+
         version:
           type: string
           example: 0.3.0
 
     ProblemDetails:
       type: object
-      required: [type, title, status, detail]
+
+      additionalProperties: false
+
+      required:
+        - type
+        - title
+        - status
+        - detail
+
       properties:
+
         type:
           type: string
           format: uri
+
         title:
           type: string
+
         status:
           type: integer
           minimum: 400
           maximum: 599
+
         detail:
           type: string
+
         instance:
           type: string
